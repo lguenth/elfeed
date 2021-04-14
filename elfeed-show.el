@@ -45,7 +45,7 @@ Called without arguments."
                  (function-item delete-window)
                  function))
 
-(defvar elfeed-show-refresh-function #'elfeed-show-refresh--mail-style
+(defvar elfeed-show-refresh-function #'elfeed-show-refresh--better-style
   "Function called to refresh the `*elfeed-entry*' buffer.")
 
 (defvar elfeed-show-mode-map
@@ -141,52 +141,57 @@ Called without arguments."
           (uri uri)
           ("[unknown]"))))
 
-(defun elfeed-show-refresh--mail-style ()
-  "Update the buffer to match the selected entry, using a mail-style."
-  (interactive)
-  (let* ((inhibit-read-only t)
-         (title (elfeed-entry-title elfeed-show-entry))
-         (date (seconds-to-time (elfeed-entry-date elfeed-show-entry)))
-         (authors (elfeed-meta elfeed-show-entry :authors))
-         (link (elfeed-entry-link elfeed-show-entry))
-         (tags (elfeed-entry-tags elfeed-show-entry))
-         (tagsstr (mapconcat #'symbol-name tags ", "))
-         (nicedate (format-time-string "%a, %e %b %Y %T %Z" date))
-         (content (elfeed-deref (elfeed-entry-content elfeed-show-entry)))
-         (type (elfeed-entry-content-type elfeed-show-entry))
-         (feed (elfeed-entry-feed elfeed-show-entry))
-         (feed-title (elfeed-feed-title feed))
-         (base (and feed (elfeed-compute-base (elfeed-feed-url feed)))))
-    (erase-buffer)
-    (insert (format (propertize "Title: %s\n" 'face 'message-header-name)
-                    (propertize title 'face 'message-header-subject)))
-    (when elfeed-show-entry-author
-      (dolist (author authors)
-        (let ((formatted (elfeed--show-format-author author)))
-          (insert
-           (format (propertize "Author: %s\n" 'face 'message-header-name)
-                   (propertize formatted 'face 'message-header-to))))))
-    (insert (format (propertize "Date: %s\n" 'face 'message-header-name)
-                    (propertize nicedate 'face 'message-header-other)))
-    (insert (format (propertize "Feed: %s\n" 'face 'message-header-name)
-                    (propertize feed-title 'face 'message-header-other)))
-    (when tags
-      (insert (format (propertize "Tags: %s\n" 'face 'message-header-name)
-                      (propertize tagsstr 'face 'message-header-other))))
-    (insert (propertize "Link: " 'face 'message-header-name))
-    (elfeed-insert-link link link)
-    (insert "\n")
-    (cl-loop for enclosure in (elfeed-entry-enclosures elfeed-show-entry)
-             do (insert (propertize "Enclosure: " 'face 'message-header-name))
-             do (elfeed-insert-link (car enclosure))
-             do (insert "\n"))
-    (insert "\n")
-    (if content
-        (if (eq type 'html)
-            (elfeed-insert-html content base)
-          (insert content))
-      (insert (propertize "(empty)\n" 'face 'italic)))
-    (goto-char (point-min))))
+(defface elfeed-show-title-face '((t (:weight ultrabold :slant italic :height 1.5)))
+	"title face in elfeed show buffer"
+	:group 'elfeed)
+(defface elfeed-show-author-face `((t (:weight light)))
+	"title face in elfeed show buffer"
+	:group 'elfeed)
+(set-face-attribute 'elfeed-search-title-face nil
+										:foreground 'nil
+										:weight 'light)
+
+(defun elfeed-show-refresh--better-style ()
+	"Update the buffer to match the selected entry, using a mail-style."
+	(interactive)
+	(let* ((inhibit-read-only t)
+				 (title (elfeed-entry-title elfeed-show-entry))
+				 (date (seconds-to-time (elfeed-entry-date elfeed-show-entry)))
+				 (author (elfeed-meta elfeed-show-entry :author))
+				 (link (elfeed-entry-link elfeed-show-entry))
+				 (tags (elfeed-entry-tags elfeed-show-entry))
+				 (tagsstr (mapconcat #'symbol-name tags ", "))
+				 (nicedate (format-time-string "%a, %e %b %Y %T %Z" date))
+				 (content (elfeed-deref (elfeed-entry-content elfeed-show-entry)))
+				 (type (elfeed-entry-content-type elfeed-show-entry))
+				 (feed (elfeed-entry-feed elfeed-show-entry))
+				 (feed-title (elfeed-feed-title feed))
+				 (base (and feed (elfeed-compute-base (elfeed-feed-url feed)))))
+		(erase-buffer)
+		(insert "\n")
+		(insert (format "%s\n\n" (propertize title 'face 'elfeed-show-title-face)))
+		(insert (format "%s\t" (propertize feed-title 'face 'elfeed-search-feed-face)))
+		(when (and author elfeed-show-entry-author)
+			(insert (format "%s\n" (propertize author 'face 'elfeed-show-author-face))))
+		(insert (format "%s\n\n" (propertize nicedate 'face 'elfeed-log-date-face)))
+		(when tags
+			(insert (format "%s\n"
+											(propertize tagsstr 'face 'elfeed-search-tag-face))))
+		(insert (propertize "Link: " 'face 'message-header-name))
+		(elfeed-insert-link link link)
+		(insert "\n")
+		(cl-loop for enclosure in (elfeed-entry-enclosures elfeed-show-entry)
+						 do (insert (propertize "Enclosure: " 'face 'message-header-name))
+						 do (elfeed-insert-link (car enclosure))
+						 do (insert "\n"))
+		(insert "\n")
+		(if content
+				(if (eq type 'html)
+						(elfeed-insert-html content base)
+					(insert content))
+			(insert (propertize "(empty)\n" 'face 'italic)))
+		(goto-char (point-min)))))
+
 
 (defun elfeed-show-refresh ()
   "Update the buffer to match the selected entry."
